@@ -1,0 +1,17 @@
+fastapi
+uvicorn
+sqlalchemy
+alembic
+pydantic-settings
+asyncpg
+passlib
+bcrypt
+pyjwt
+python-decouple
+pydantic[email]
+fastapi-mail
+fastapi-cache2[redis]
+setuptools
+redis-server
+redis
+python-multipart
