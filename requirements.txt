@@ -14,4 +14,8 @@ fastapi-cache2[redis]
 setuptools
 redis-server
 redis
+pytest
+httpx
+pytest-asyncio
 python-multipart
+pytest_postgresql

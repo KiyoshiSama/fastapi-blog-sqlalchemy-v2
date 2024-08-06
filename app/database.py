@@ -1,19 +1,27 @@
 import contextlib
 from typing import AsyncIterator
-
-from fastapi import Depends
-from sqlalchemy.ext.asyncio import (AsyncConnection, AsyncEngine, AsyncSession,
-                                    async_sessionmaker, create_async_engine)
+from sqlalchemy.ext.asyncio import (
+    AsyncConnection,
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 from sqlalchemy.orm import DeclarativeBase
 
 
 class Base(DeclarativeBase):
     pass
 
+
 class DatabaseSessionManager:
     def __init__(self, host: str, engine_kwargs: dict[str] = {}):
         self._engine = create_async_engine(host, **engine_kwargs)
-        self._sessionmaker = async_sessionmaker(autocommit=False, bind=self._engine, expire_on_commit=False)
+        self._sessionmaker = async_sessionmaker(
+            autocommit=False, bind=self._engine, expire_on_commit=False
+        )
+    def init(self, host: str):
+        self._engine = create_async_engine(host)
+        self._sessionmaker = async_sessionmaker(autocommit=False, bind=self._engine)
 
     async def close(self):
         if self._engine is None:
@@ -48,8 +56,18 @@ class DatabaseSessionManager:
         finally:
             await session.close()
 
+    # Used for testing
+    async def create_all(self, connection: AsyncConnection):
+        await connection.run_sync(Base.metadata.create_all)
 
-sessionmanager = DatabaseSessionManager("postgresql+asyncpg://amirh:784512@localhost/blog",{"echo" : True})
+    async def drop_all(self, connection: AsyncConnection):
+        await connection.run_sync(Base.metadata.drop_all)
+
+
+sessionmanager = DatabaseSessionManager(
+    "postgresql+asyncpg://amirh:784512@localhost/blog", {"echo": True}
+)
+
 
 async def get_db():
     async with sessionmanager.session() as session:

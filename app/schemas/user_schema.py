@@ -14,7 +14,7 @@ class UserCreate(UserBase):
 
 
 class User(BaseModel):
-    id: int
+    id: int 
     is_verified : bool = False
     is_superuser : bool = False
     is_firstlogin : bool = False
