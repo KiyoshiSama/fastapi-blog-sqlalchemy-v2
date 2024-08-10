@@ -1,124 +1,67 @@
-# test_blog.py
+import asyncio
+from contextlib import ExitStack
 
 import pytest
-from httpx import AsyncClient
-from app.schemas.post_schema import PostCreate
+from fastapi.testclient import TestClient
+from pytest_postgresql import factories
+from pytest_postgresql.janitor import DatabaseJanitor
+from sqlalchemy.testing.entities import ComparableEntity
 
-@pytest.mark.asyncio
-async def test_create_post(client: AsyncClient, db_session: AsyncSession):
-    # Create a test user
-    user_response = await client.post(
-        "/api/user/create-user",
-        json={"email": "testuser@example.com", "password": "password", "first_name": "Test", "last_name": "User"},
-    )
-    assert user_response.status_code == 200
-    user_id = user_response.json()["id"]
+from app import init_app
+from app.models import User
+from app.dependencies import get_db, sessionmanager
 
-    # Authenticate the user to get a token
-    auth_response = await client.post(
-        "/api/auth/login",
-        data={"username": "testuser@example.com", "password": "password"},
-    )
-    assert auth_response.status_code == 200
-    token = auth_response.json()["access_token"]
 
-    headers = {"Authorization": f"Bearer {token}"}
+@pytest.fixture(autouse=True)
+def app():
+    with ExitStack():
+        yield init_app(init_db=False)
 
-    # Create a new blog post
-    post_data = {"title": "Test Post", "content": "This is a test post.", "is_published": True}
-    response = await client.post(
-        "/api/blog/create-new", json=post_data, headers=headers
-    )
-    assert response.status_code == 201
-    assert response.json()["title"] == "Test Post"
 
-@pytest.mark.asyncio
-async def test_get_all_posts(client: AsyncClient, db_session: AsyncSession):
-    # Authenticate the user to get a token
-    auth_response = await client.post(
-        "/api/auth/login",
-        data={"username": "testuser@example.com", "password": "password"},
-    )
-    assert auth_response.status_code == 200
-    token = auth_response.json()["access_token"]
+@pytest.fixture
+def client(app):
+    with TestClient(app) as c:
+        yield c
 
-    headers = {"Authorization": f"Bearer {token}"}
 
-    # Get all blog posts
-    response = await client.get("/api/blog/all", headers=headers)
-    assert response.status_code == 200
-    assert isinstance(response.json(), list)
+test_db = factories.postgresql_proc(port=None, dbname="test_db")
 
-@pytest.mark.asyncio
-async def test_update_post(client: AsyncClient, db_session: AsyncSession):
-    # Authenticate the user to get a token
-    auth_response = await client.post(
-        "/api/auth/login",
-        data={"username": "testuser@example.com", "password": "password"},
-    )
-    assert auth_response.status_code == 200
-    token = auth_response.json()["access_token"]
 
-    headers = {"Authorization": f"Bearer {token}"}
+@pytest.fixture(scope="session")
+def event_loop(request):
+    loop = asyncio.get_event_loop_policy().new_event_loop()
+    yield loop
+    loop.close()
 
-    # Create a new blog post
-    post_data = {"title": "Test Post", "content": "This is a test post.", "is_published": True}
-    response = await client.post(
-        "/api/blog/create-new", json=post_data, headers=headers
-    )
-    post_id = response.json()["id"]
 
-    # Update the blog post
-    update_data = {"title": "Updated Test Post", "content": "This is an updated test post.", "is_published": False}
-    response = await client.put(
-        f"/api/blog/update/{post_id}", json=update_data, headers=headers
-    )
-    assert response.status_code == 202
-    assert response.json()["title"] == "Updated Test Post"
+@pytest.fixture(scope="session", autouse=True)
+async def connection_test(test_db, event_loop):
+    pg_host = test_db.host
+    pg_port = test_db.port
+    pg_user = test_db.user
+    pg_db = test_db.dbname
+    pg_password = test_db.password
 
-@pytest.mark.asyncio
-async def test_delete_post(client: AsyncClient, db_session: AsyncSession):
-    # Authenticate the user to get a token
-    auth_response = await client.post(
-        "/api/auth/login",
-        data={"username": "testuser@example.com", "password": "password"},
-    )
-    assert auth_response.status_code == 200
-    token = auth_response.json()["access_token"]
+    with DatabaseJanitor(
+        pg_user, pg_host, pg_port, pg_db, test_db.version, pg_password
+    ):
+        connection_str = f"postgresql+psycopg://{pg_user}:@{pg_host}:{pg_port}/{pg_db}"
+        sessionmanager.init(connection_str)
+        yield
+        await sessionmanager.close()
 
-    headers = {"Authorization": f"Bearer {token}"}
 
-    # Create a new blog post
-    post_data = {"title": "Test Post", "content": "This is a test post.", "is_published": True}
-    response = await client.post(
-        "/api/blog/create-new", json=post_data, headers=headers
-    )
-    post_id = response.json()["id"]
+@pytest.fixture(scope="function", autouse=True)
+async def create_tables(connection_test):
+    async with sessionmanager.connect() as connection:
+        await sessionmanager.drop_all(connection)
+        await sessionmanager.create_all(connection)
 
-    # Delete the blog post
-    response = await client.delete(f"/api/blog/delete/{post_id}", headers=headers)
-    assert response.status_code == 204
 
-@pytest.mark.asyncio
-async def test_show_post(client: AsyncClient, db_session: AsyncSession):
-    # Authenticate the user to get a token
-    auth_response = await client.post(
-        "/api/auth/login",
-        data={"username": "testuser@example.com", "password": "password"},
-    )
-    assert auth_response.status_code == 200
-    token = auth_response.json()["access_token"]
+@pytest.fixture(scope="function", autouse=True)
+async def session_override(app, connection_test):
+    async def get_db_override():
+        async with sessionmanager.session() as session:
+            yield session
 
-    headers = {"Authorization": f"Bearer {token}"}
-
-    # Create a new blog post
-    post_data = {"title": "Test Post", "content": "This is a test post.", "is_published": True}
-    response = await client.post(
-        "/api/blog/create-new", json=post_data, headers=headers
-    )
-    post_id = response.json()["id"]
-
-    # Show the blog post
-    response = await client.get(f"/api/blog/show/{post_id}", headers=headers)
-    assert response.status_code == 200
-    assert response.json()["title"] == "Test Post"
+    app.dependency_overrides[get_db] = get_db_override

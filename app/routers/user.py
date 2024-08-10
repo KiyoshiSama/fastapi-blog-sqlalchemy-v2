@@ -10,15 +10,22 @@ from app.schemas.user_schema import (
     TokenData,
 )
 from app.models import User as UserModel
-from app.database import get_db
-from app.crud import user
-from app.auth import auth_handler
-from app.utils import email
-from app.dependencies import get_reddis
-from app.auth.auth_handler import get_current_user
+from app.dependencies import get_db
+from app.crud import user_crud
+from app.utils import auth_handler
+from app.external_services import email
+from app.dependencies import get_redis
+from app.utils.auth_handler import get_current_user
 
 
 router = APIRouter(prefix="/user", tags=["Users"])
+
+
+@router.get("/users/me")
+async def read_users_me(
+    current_user: TokenData = Depends(get_current_user),
+):
+    return current_user
 
 
 @router.get(
@@ -26,25 +33,20 @@ router = APIRouter(prefix="/user", tags=["Users"])
     status_code=status.HTTP_200_OK,
     response_model=list[User],
 )
-async def all(db: AsyncSession = Depends(get_db),current_user: User = Depends(get_current_user)):
-    return await user.get_all(db)
-
-
-@router.get("/users/me")
-async def read_users_me(
-    current_user: TokenData = Depends(auth_handler.get_current_user),
+async def all(
+    db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
-    return current_user
+    return await user_crud.get_all(db)
 
 
 @router.post("/signup", status_code=status.HTTP_201_CREATED)
 async def signup(
     request: UserCreate,
     background_tasks: BackgroundTasks,
-    cache=Depends(get_reddis),
+    cache=Depends(get_redis),
     db: AsyncSession = Depends(get_db),
 ):
-    created_user = await user.create(request, db)
+    created_user = await user_crud.create(request, db)
     # await email.send_email_async("Welcome aboard",created_user.email,{"first_name": created_user.first_name })
     verification_code = str(random.randint(10000, 99999))
     cache.set(str(created_user.email), verification_code, 600)
@@ -65,7 +67,7 @@ async def signup(
 )
 async def activate(
     request: UserVerifyCode,
-    cache=Depends(get_reddis),
+    cache=Depends(get_redis),
     db: AsyncSession = Depends(get_db),
 ):
     user = await db.execute(select(UserModel).filter(UserModel.email == request.email))
@@ -74,14 +76,15 @@ async def activate(
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="user not found"
         )
-    if user.is_firstlogin:
+    if not user.is_firstlogin:
         raise HTTPException(
-            status_code=status.HTTP_405_METHOD_NOT_ALLOWED, detail="You've already activated your account"
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You've already activated your account",
         )
     cached_code = cache.get(request.email)
     if request.code != cached_code:
         raise HTTPException(
-            status_code=status.HTTP_406_NOT_ACCEPTABLE, detail="code has expired"
+            status_code=status.HTTP_403_FORBIDDEN, detail="code has expired"
         )
 
     user.is_verified = True
@@ -91,18 +94,36 @@ async def activate(
     return {"details": "account confirmed sucessfully"}
 
 
+@router.put(
+    "/{id}",
+    status_code=status.HTTP_201_CREATED,
+)
+async def update(
+    id: int,
+    request: UserBase,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await user_crud.update(id, request, db)
+
+
 @router.patch(
     "/{id}",
-    status_code=status.HTTP_202_ACCEPTED,
+    status_code=status.HTTP_201_CREATED,
 )
-async def update(id: int, request: UserBase, db: AsyncSession = Depends(get_db),current_user: User = Depends(get_current_user)):
-    return await user.update(id, request, db)
+async def update(
+    id: int,
+    request: UserBase,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await user_crud.partial_update(id, request, db)
 
 
-@router.get(
-    "/{id}",
-    status_code=200,
-    response_model=User,
-)
-async def show(id: int, db: AsyncSession = Depends(get_db)):
-    return await user.show(id, db)
+@router.get("/{id}", status_code=status.HTTP_200_OK, response_model=User)
+async def retrieve(
+    id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await user_crud.retrieve_user(id, db)

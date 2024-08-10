@@ -1,4 +1,3 @@
-from __future__ import annotations  
 from pydantic import BaseModel
 from datetime import datetime
 
@@ -19,4 +18,3 @@ class Post(PostBase):
         orm_mode = True
 
 
-from app.schemas.user_schema import User 

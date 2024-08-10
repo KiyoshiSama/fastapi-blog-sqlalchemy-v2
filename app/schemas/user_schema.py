@@ -1,5 +1,5 @@
-from __future__ import annotations
 from pydantic import BaseModel, EmailStr
+from app.schemas.post_schema import Post
 
 
 class UserBase(BaseModel):
@@ -13,7 +13,7 @@ class UserCreate(UserBase):
 
 
 
-class User(BaseModel):
+class User(UserBase):
     id: int 
     is_verified : bool = False
     is_superuser : bool = False
@@ -43,5 +43,6 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     id: int | None = None
 
-
-from app.schemas.post_schema import Post
+class RefreshToken(BaseModel):
+    refresh_token: str
+    

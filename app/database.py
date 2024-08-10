@@ -6,11 +6,10 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
-from sqlalchemy.orm import DeclarativeBase
+from sqlalchemy.orm import declarative_base
+from app.config import Config
 
-
-class Base(DeclarativeBase):
-    pass
+Base = declarative_base()
 
 
 class DatabaseSessionManager:
@@ -19,6 +18,7 @@ class DatabaseSessionManager:
         self._sessionmaker = async_sessionmaker(
             autocommit=False, bind=self._engine, expire_on_commit=False
         )
+
     def init(self, host: str):
         self._engine = create_async_engine(host)
         self._sessionmaker = async_sessionmaker(autocommit=False, bind=self._engine)
@@ -65,10 +65,5 @@ class DatabaseSessionManager:
 
 
 sessionmanager = DatabaseSessionManager(
-    "postgresql+asyncpg://amirh:784512@localhost/blog", {"echo": True}
+    Config.DB_CONFIG, {"echo": True}
 )
-
-
-async def get_db():
-    async with sessionmanager.session() as session:
-        yield session
