@@ -21,11 +21,12 @@ from app.utils.auth_handler import get_current_user
 router = APIRouter(prefix="/user", tags=["Users"])
 
 
-@router.get("/users/me")
-async def read_users_me(
-    current_user: TokenData = Depends(get_current_user),
+@router.get("/me", status_code=status.HTTP_200_OK, response_model=User)
+async def retrieve(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
-    return current_user
+    return await user_crud.retrieve_user(current_user.id, db)
 
 
 @router.get(
@@ -57,7 +58,7 @@ async def signup(
         {"first_name": created_user.first_name, "activation_code": verification_code},
     )
     return {
-        "detail": "your account has been created succefully, please check your email!"
+        "detail": "your account has been created successfully, please check your email!"
     }
 
 
@@ -127,3 +128,11 @@ async def retrieve(
     current_user: User = Depends(get_current_user),
 ):
     return await user_crud.retrieve_user(id, db)
+
+@router.delete("/delete/{id}", status_code=status.HTTP_200_OK)
+async def destroy(
+    id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    return await user_crud.destroy(id, db)

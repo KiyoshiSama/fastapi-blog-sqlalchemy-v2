@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from app.models.post_model import Post
 
+
 class User(Base):
     __tablename__ = "user"
 

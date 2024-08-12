@@ -36,6 +36,7 @@ async def update(id: int, request: UserBase, db: AsyncSession):
     for key, value in request.model_dump().items():
         setattr(user, key, value)
     await db.commit()
+    await db.refresh(user)
     return user
 
 
@@ -50,7 +51,9 @@ async def partial_update(id: int, request: UserBase, db: AsyncSession):
     for key, value in update_data.items():
         setattr(user, key, value)
     await db.commit()
+    await db.refresh(user)
     return user
+
 
 async def destroy(id, db):
     result = await db.execute(select(UserModel).filter(UserModel.id == id))
@@ -62,7 +65,6 @@ async def destroy(id, db):
     await db.delete(user)
     await db.commit()
     return JSONResponse({"detail": "User succefully deleted"})
-
 
 
 async def retrieve_user(id: int, db: AsyncSession):

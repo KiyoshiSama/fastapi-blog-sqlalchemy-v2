@@ -12,7 +12,7 @@ class PostCreate(PostBase):
 
 class Post(PostBase):
     id : int
-    created : datetime
+    created_at : datetime
     user_id : int
     class Config():
         orm_mode = True

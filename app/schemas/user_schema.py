@@ -1,15 +1,20 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr,Field
 from app.schemas.post_schema import Post
+from datetime import datetime
 
 
 class UserBase(BaseModel):
-    email: str
+    email: EmailStr
     first_name: str
     last_name: str
+    
+
+# password_regex = "((?=.*\d)(?=.*[a-z])(?=.*[A-Z])(?=.*[\W]).{8,64})"
 
 
 class UserCreate(UserBase):
-    password: str
+    password: str 
+    # = Field(...,regex=)
 
 
 
@@ -18,6 +23,7 @@ class User(UserBase):
     is_verified : bool = False
     is_superuser : bool = False
     is_firstlogin : bool = False
+    created_at : datetime
     blogs: list[Post] = []
 
     class Config:

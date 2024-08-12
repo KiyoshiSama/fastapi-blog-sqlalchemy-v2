@@ -49,7 +49,6 @@ async def update(id, request: PostCreate, db):
 
     await db.commit()
     await db.refresh(blog)
-
     return blog
 
 

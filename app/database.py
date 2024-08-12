@@ -1,5 +1,6 @@
 import contextlib
 from typing import AsyncIterator
+from sqlalchemy import NullPool
 from sqlalchemy.ext.asyncio import (
     AsyncConnection,
     AsyncSession,
@@ -14,13 +15,13 @@ Base = declarative_base()
 
 class DatabaseSessionManager:
     def __init__(self, host: str, engine_kwargs: dict[str] = {}):
-        self._engine = create_async_engine(host, **engine_kwargs)
+        self._engine = create_async_engine(host, poolclass=NullPool, **engine_kwargs)
         self._sessionmaker = async_sessionmaker(
             autocommit=False, bind=self._engine, expire_on_commit=False
         )
 
     def init(self, host: str):
-        self._engine = create_async_engine(host)
+        self._engine = create_async_engine(host, poolclass=NullPool)
         self._sessionmaker = async_sessionmaker(autocommit=False, bind=self._engine)
 
     async def close(self):
@@ -56,7 +57,6 @@ class DatabaseSessionManager:
         finally:
             await session.close()
 
-    # Used for testing
     async def create_all(self, connection: AsyncConnection):
         await connection.run_sync(Base.metadata.create_all)
 
@@ -64,6 +64,4 @@ class DatabaseSessionManager:
         await connection.run_sync(Base.metadata.drop_all)
 
 
-sessionmanager = DatabaseSessionManager(
-    Config.DB_CONFIG, {"echo": True}
-)
+sessionmanager = DatabaseSessionManager(Config.DB_CONFIG, {"echo": True})
