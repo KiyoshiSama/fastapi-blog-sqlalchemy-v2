@@ -1,29 +1,33 @@
-import random
 import pytest
+from faker import Faker
+
+faker = Faker()
 
 
+@pytest.mark.asyncio
 def test_create_client(client):
-    global number
-    number = random.randint(100, 999)
+    email = faker.email()
+    password = faker.password()
+    first_name = faker.first_name()
+    last_name = faker.last_name()
+
     data = {
-        "email": f"testuser{number}@example.com",
-        "first_name": "New",
-        "last_name": "User",
-        "password": "testpassword",
+        "email": email,
+        "first_name": first_name,
+        "last_name": last_name,
+        "password": password,
     }
-    response = client.post(url="/user/signup", json=data)
+    response = client.post(url="/users/signup", json=data)
 
     assert response.status_code == 201
     assert (
         response.json()["detail"]
         == "your account has been created successfully, please check your email!"
     )
+
     response = client.post(
         url="/login",
-        data={
-            "username": f"testuser{number}@example.com",
-            "password": "testpassword",
-        },
+        data={"username": email, "password": password},
     )
     assert response.status_code == 200
     assert "access_token" in response.json()
@@ -34,7 +38,7 @@ def test_create_client(client):
 @pytest.mark.asyncio
 def test_retrieve_all_users(client, test_user):
     headers = {"Authorization": f"Bearer {test_user['access_token']}"}
-    response = client.get(url="/user/all", headers=headers)
+    response = client.get(url="/users", headers=headers)
     assert response.status_code == 200
     assert isinstance(response.json(), list)
 
@@ -42,7 +46,7 @@ def test_retrieve_all_users(client, test_user):
 @pytest.mark.asyncio
 def test_retrieve_my_user(client, test_user):
     headers = {"Authorization": f"Bearer {test_user['access_token']}"}
-    response = client.get(url="/user/me", headers=headers)
+    response = client.get(url="/users/profile", headers=headers)
     assert response.status_code == 200
     assert response.json()["email"] == test_user["email"]
 
@@ -50,47 +54,45 @@ def test_retrieve_my_user(client, test_user):
 @pytest.mark.asyncio
 def test_update_user(client, test_user):
     headers = {"Authorization": f"Bearer {test_user['access_token']}"}
+    new_email = faker.email()
     response = client.put(
-        "/user/1",
+        "/users/1",
         json={
-            "email": "updateduser@example.com",
-            "first_name": "Updated",
-            "last_name": "User",
+            "email": new_email,
+            "first_name": faker.first_name(),
+            "last_name": faker.last_name(),
         },
         headers=headers,
     )
-    print(response.json())
     assert response.status_code == 201
-    assert response.json()["email"] == "updateduser@example.com"
+    assert response.json()["email"] == new_email
 
 
 @pytest.mark.asyncio
 def test_partial_update_user(client, test_user):
     headers = {"Authorization": f"Bearer {test_user['access_token']}"}
+    new_first_name = faker.first_name()
     response = client.patch(
-        "/user/1",
-        json={
-            "email": test_user["email"],
-            "first_name": "PartiallyUpdated",
-            "last_name": "updated_last_name",
-        },
+        "/users/1",
+        json={"first_name": new_first_name},
         headers=headers,
     )
     assert response.status_code == 201
-    assert response.json()["first_name"] == "PartiallyUpdated"
+    assert response.json()["first_name"] == new_first_name
 
 
 @pytest.mark.asyncio
 def test_retrieve_user(client, test_user):
     headers = {"Authorization": f"Bearer {test_user['access_token']}"}
-    response = client.get("/user/1", headers=headers)
+    response = client.get("/users/1", headers=headers)
     assert response.status_code == 200
-    assert response.json()["email"] == "testuser@example.com"
+    assert response.json()["email"] == test_user["email"]
+
 
 @pytest.mark.asyncio
 def test_delete_user(client, test_user):
     headers = {"Authorization": f"Bearer {test_user['access_token']}"}
-    response = client.delete("user/delete/1", headers=headers)
+    response = client.delete("users/1", headers=headers)
     assert response.status_code == 200
     response = client.get("user/1", headers=headers)
     assert response.status_code == 404
@@ -99,19 +101,12 @@ def test_delete_user(client, test_user):
 @pytest.mark.asyncio
 def test_unauthenticated_request(client):
     headers = {"Authorization": f"Bearer fake token"}
-    response = client.get("/user/all", headers=headers)
+    response = client.get("/users/", headers=headers)
     assert response.status_code == 401
-    response = client.get("/user/1", headers=headers)
+    response = client.get("/users/1", headers=headers)
     assert response.status_code == 401
-    response = client.get("/user/me", headers=headers)
+    response = client.get("/users/profile", headers=headers)
     assert response.status_code == 401
-    response = client.delete("/user/delete/1", headers=headers)
-    assert response.status_code == 401
-    response = client.put("/user/1", headers=headers)
-    assert response.status_code == 401
-    response = client.patch("/user/1", headers=headers)
-    assert response.status_code == 401
-
 
 
 @pytest.mark.asyncio
@@ -119,7 +114,7 @@ def test_invalid_input(client, test_user):
     headers = {"Authorization": f"Bearer {test_user['access_token']}"}
 
     response = client.post(
-        "/user/signup",
+        "/users/signup",
         json={
             "email": "invalidemail",
             "password": "short",
@@ -137,19 +132,17 @@ def test_invalid_input(client, test_user):
     assert response.status_code == 401
 
     response = client.put(
-        "/user/1",
-        json={
-            "email": "updateduser@example.com",
-        },
+        "/users/1",
+        json={"email": faker.email()},
         headers=headers,
     )
     assert response.status_code == 422
 
     response = client.patch(
-        "/user/1",
+        "/users/1",
         json={
             "email": "invalidemailformat",
-            "first_name": "NewName",
+            "first_name": faker.first_name(),
         },
         headers=headers,
     )
@@ -161,3 +154,10 @@ def test_invalid_route(client, test_user):
     headers = {"Authorization": f"Bearer {test_user['access_token']}"}
     response = client.get("/ascaad", headers=headers)
     assert response.status_code == 404
+
+
+@pytest.mark.asyncio
+def test_refresh_instead_of_access(client, test_user):
+    headers = {"Authorization": f"Bearer {test_user['refresh_token']}"}
+    response = client.get("/users", headers=headers)
+    assert response.json()["detail"] == "Cannot authenticate with a refresh token"

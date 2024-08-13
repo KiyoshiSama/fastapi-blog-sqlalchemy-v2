@@ -3,21 +3,19 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from app.models.post_model import Post as PostModel
-from app.schemas.post_schema import PostCreate
+from app.models.post_model import Post
+from app.schemas import PostBase, PostPUpdate
 
 
 async def get_all(user, db: AsyncSession):
     result = await db.execute(
-        select(PostModel)
-        .options(selectinload(PostModel.user))
-        .filter(PostModel.user_id == user.id)
+        select(Post).options(selectinload(Post.user)).filter(Post.user_id == user.id)
     )
     return result.scalars().all()
 
 
 async def create(user, request, db):
-    new_blog = PostModel(**request.model_dump(), user_id=user.id)
+    new_blog = Post(**request.model_dump(), user_id=user.id)
     db.add(new_blog)
     await db.commit()
     await db.refresh(new_blog)
@@ -25,7 +23,7 @@ async def create(user, request, db):
 
 
 async def destroy(id, db):
-    result = await db.execute(select(PostModel).filter(PostModel.id == id))
+    result = await db.execute(select(Post).filter(Post.id == id))
     blog = result.scalar_one_or_none()
     if not blog:
         raise HTTPException(
@@ -36,8 +34,8 @@ async def destroy(id, db):
     return JSONResponse({"detail": "blog post succefully deleted"})
 
 
-async def update(id, request: PostCreate, db):
-    result = await db.execute(select(PostModel).filter(PostModel.id == id))
+async def update(id, request: PostBase, db):
+    result = await db.execute(select(Post).filter(Post.id == id))
     blog = result.scalar_one_or_none()
     if not blog:
         raise HTTPException(
@@ -52,8 +50,8 @@ async def update(id, request: PostCreate, db):
     return blog
 
 
-async def partial_update(id, request: PostCreate, db):
-    result = await db.execute(select(PostModel).filter(PostModel.id == id))
+async def partial_update(id, request: PostPUpdate, db):
+    result = await db.execute(select(Post).filter(Post.id == id))
     blog = result.scalar_one_or_none()
     if not blog:
         raise HTTPException(
@@ -71,9 +69,7 @@ async def partial_update(id, request: PostCreate, db):
 
 async def retrieve_post(id, db):
     result = await db.execute(
-        select(PostModel)
-        .options(selectinload(PostModel.user))
-        .filter(PostModel.id == id)
+        select(Post).options(selectinload(Post.user)).filter(Post.id == id)
     )
     blog = result.scalar_one_or_none()
     if not blog:

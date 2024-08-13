@@ -10,7 +10,9 @@ from app.database import sessionmanager
 from app.models import User, Post
 from app.utils.auth_utils import get_password_hash
 from datetime import datetime
+from faker import Faker
 
+faker = Faker()
 
 @pytest.fixture(autouse=True)
 def app():
@@ -42,7 +44,6 @@ async def connection_test(test_db, event_loop):
     pg_db = test_db.dbname
     pg_password = test_db.password
 
-    # Initialize DatabaseJanitor with the correct signature
     with DatabaseJanitor(
         user=pg_user,
         host=pg_host,
@@ -61,10 +62,9 @@ async def connection_test(test_db, event_loop):
 
 @pytest.fixture(scope="function", autouse=True)
 async def create_tables(connection_test):
-    # Create all tables before running tests
     async with sessionmanager.connect() as connection:
-        await sessionmanager.drop_all(connection)  # Drop all tables if needed
-        await sessionmanager.create_all(connection)  # Create all tables
+        await sessionmanager.drop_all(connection)
+        await sessionmanager.create_all(connection)
 
 
 @pytest.fixture(scope="function", autouse=True)
@@ -75,50 +75,60 @@ async def session_override(app, connection_test):
 
     app.dependency_overrides[get_db] = get_db_override
 
+import faker
+from datetime import datetime
+from app.utils.auth_utils import get_password_hash
+
+fake = faker.Faker()
 
 @pytest.fixture
 async def test_user(client):
     async with sessionmanager.session() as session:
-        hashed_password = get_password_hash("testpassword")
-        new_user = User(
-            email="testuser@example.com",
-            password=hashed_password,
-            first_name="Test",
-            last_name="User",
-            is_verified=True,
-            is_firstlogin=False,
-            is_superuser=False,
-            created_at=datetime.now(),
-        )
+        password = fake.password()
+        payload = {
+            "email": fake.email(),
+            "password": get_password_hash(password),
+            "first_name": fake.first_name(),
+            "last_name": fake.last_name(),
+            "is_verified": True,
+            "is_firstlogin": False,
+            "is_superuser": False,
+            "created_at": datetime.now(),
+        }
+
+        new_user = User(**payload)
         session.add(new_user)
         await session.commit()
 
-    # Log in the user to get the access token
     response = client.post(
         "/login",
-        data={"username": "testuser@example.com", "password": "testpassword"},
+        data={"username": payload["email"], "password": password},
     )
     assert response.status_code == 200
     access_token = response.json()["access_token"]
+    refresh_token = response.json()["refresh_token"]
 
-    yield {"email": "testuser@example.com", "access_token": access_token}
+    yield {
+        **payload,
+        "access_token": access_token,
+        "refresh_token": refresh_token,
+    }
 
 
 @pytest.fixture
 async def test_post(client):
     async with sessionmanager.session() as session:
-        new_post = Post(
-            title="post title test original",
-            content="post content test",
-            is_published=True,
-            user_id=1,
-            created_at=datetime.now(),
-        )
+        payload = {
+            "title": fake.sentence(),
+            "content": fake.paragraph(),
+            "is_published": True,
+            "user_id": 1,  
+            "created_at": datetime.now(),
+        }
+
+        new_post = Post(**payload)
         session.add(new_post)
         await session.commit()
 
-        yield {
-            "title": "post title test original",
-            "content": "post content test",
-            "is_published": True,
-        }
+        yield payload
+

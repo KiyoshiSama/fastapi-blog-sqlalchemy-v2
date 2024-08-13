@@ -1,27 +1,27 @@
 import random
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy import select
+from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.schemas.user_schema import (
     User,
     UserCreate,
     UserBase,
     UserVerifyCode,
-    TokenData,
+    UserPUpdate,
 )
 from app.models import User as UserModel
 from app.dependencies import get_db
 from app.crud import user_crud
-from app.utils import auth_handler
 from app.external_services import email
 from app.dependencies import get_redis
 from app.utils.auth_handler import get_current_user
 
 
-router = APIRouter(prefix="/user", tags=["Users"])
+router = APIRouter(prefix="/users", tags=["Users"])
 
 
-@router.get("/me", status_code=status.HTTP_200_OK, response_model=User)
+@router.get("/profile", status_code=status.HTTP_200_OK, response_model=User)
 async def retrieve(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -30,11 +30,11 @@ async def retrieve(
 
 
 @router.get(
-    "/all",
+    "/",
     status_code=status.HTTP_200_OK,
     response_model=list[User],
 )
-async def all(
+async def all_users(
     db: AsyncSession = Depends(get_db), current_user: User = Depends(get_current_user)
 ):
     return await user_crud.get_all(db)
@@ -57,9 +57,11 @@ async def signup(
         created_user.email,
         {"first_name": created_user.first_name, "activation_code": verification_code},
     )
-    return {
-        "detail": "your account has been created successfully, please check your email!"
-    }
+    return JSONResponse(
+        {
+            "detail": "your account has been created successfully, please check your email!"
+        }
+    )
 
 
 @router.post(
@@ -92,7 +94,7 @@ async def activate(
     user.is_firstlogin = False
     await db.commit()
     await db.refresh(user)
-    return {"details": "account confirmed sucessfully"}
+    return JSONResponse({"details": "account confirmed sucessfully"})
 
 
 @router.put(
@@ -112,9 +114,9 @@ async def update(
     "/{id}",
     status_code=status.HTTP_201_CREATED,
 )
-async def update(
+async def partial_update(
     id: int,
-    request: UserBase,
+    request: UserPUpdate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -129,7 +131,8 @@ async def retrieve(
 ):
     return await user_crud.retrieve_user(id, db)
 
-@router.delete("/delete/{id}", status_code=status.HTTP_200_OK)
+
+@router.delete("/{id}", status_code=status.HTTP_200_OK)
 async def destroy(
     id: int,
     db: AsyncSession = Depends(get_db),

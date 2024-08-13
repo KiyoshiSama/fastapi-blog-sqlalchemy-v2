@@ -3,12 +3,13 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import User as UserModel
-from app.schemas.user_schema import UserBase
+from app.schemas.user_schema import UserBase, UserPUpdate
 from app.utils import auth_utils
+from sqlalchemy.orm import selectinload
 
 
 async def get_all(db: AsyncSession):
-    result = await db.execute(select(UserModel))
+    result = await db.execute(select(UserModel).options(selectinload(UserModel.posts)))
     return result.scalars().all()
 
 
@@ -40,7 +41,7 @@ async def update(id: int, request: UserBase, db: AsyncSession):
     return user
 
 
-async def partial_update(id: int, request: UserBase, db: AsyncSession):
+async def partial_update(id: int, request: UserPUpdate, db: AsyncSession):
     result = await db.execute(select(UserModel).filter(UserModel.id == id))
     user = result.scalar_one_or_none()
     if not user:
@@ -68,7 +69,11 @@ async def destroy(id, db):
 
 
 async def retrieve_user(id: int, db: AsyncSession):
-    result = await db.execute(select(UserModel).filter(UserModel.id == id))
+    result = await db.execute(
+        select(UserModel)
+        .options(selectinload(UserModel.posts))
+        .filter(UserModel.id == id)
+    )
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(
