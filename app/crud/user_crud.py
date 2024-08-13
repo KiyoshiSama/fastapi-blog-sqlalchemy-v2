@@ -2,20 +2,20 @@ from fastapi import HTTPException, status
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.models import User as UserModel
-from app.schemas.user_schema import UserBase, UserPUpdate
+from app.models import User
+from app.schemas.user_schema import UserBase, UserPartialUpdate
 from app.utils import auth_utils
 from sqlalchemy.orm import selectinload
 
 
 async def get_all(db: AsyncSession):
-    result = await db.execute(select(UserModel).options(selectinload(UserModel.posts)))
+    result = await db.execute(select(User).options(selectinload(User.posts)))
     return result.scalars().all()
 
 
 async def create(request, db):
 
-    new_user = UserModel(
+    new_user = User(
         email=request.email,
         first_name=request.first_name,
         last_name=request.last_name,
@@ -28,7 +28,7 @@ async def create(request, db):
 
 
 async def update(id: int, request: UserBase, db: AsyncSession):
-    result = await db.execute(select(UserModel).filter(UserModel.id == id))
+    result = await db.execute(select(User).filter(User.id == id))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(
@@ -41,8 +41,8 @@ async def update(id: int, request: UserBase, db: AsyncSession):
     return user
 
 
-async def partial_update(id: int, request: UserPUpdate, db: AsyncSession):
-    result = await db.execute(select(UserModel).filter(UserModel.id == id))
+async def partial_update(id: int, request: UserPartialUpdate, db: AsyncSession):
+    result = await db.execute(select(User).filter(User.id == id))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(
@@ -57,7 +57,7 @@ async def partial_update(id: int, request: UserPUpdate, db: AsyncSession):
 
 
 async def destroy(id, db):
-    result = await db.execute(select(UserModel).filter(UserModel.id == id))
+    result = await db.execute(select(User).filter(User.id == id))
     user = result.scalar_one_or_none()
     if not user:
         raise HTTPException(
@@ -70,9 +70,7 @@ async def destroy(id, db):
 
 async def retrieve_user(id: int, db: AsyncSession):
     result = await db.execute(
-        select(UserModel)
-        .options(selectinload(UserModel.posts))
-        .filter(UserModel.id == id)
+        select(User).options(selectinload(User.posts)).filter(User.id == id)
     )
     user = result.scalar_one_or_none()
     if not user:

@@ -3,12 +3,12 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy import select
 from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.schemas.user_schema import (
+from app.schemas import (
     User,
     UserCreate,
     UserBase,
     UserVerifyCode,
-    UserPUpdate,
+    UserPartialUpdate,
 )
 from app.models import User as UserModel
 from app.dependencies import get_db
@@ -116,7 +116,7 @@ async def update(
 )
 async def partial_update(
     id: int,
-    request: UserPUpdate,
+    request: UserPartialUpdate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):

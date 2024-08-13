@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.schemas.post_schema import PostResponse, PostBase, PostPUpdate
+from app.schemas.post_schema import PostResponse, PostBase, PostPartialUpdate
 from app.dependencies import get_db
 from app.crud import post_crud
 from app.utils.auth_handler import get_current_user
@@ -47,7 +47,7 @@ async def update(
 @router.patch("/{id}", response_model=PostResponse, status_code=status.HTTP_201_CREATED)
 async def partial_update(
     id: int,
-    request: PostPUpdate,
+    request: PostPartialUpdate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):

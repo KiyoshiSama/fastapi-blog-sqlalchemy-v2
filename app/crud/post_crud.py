@@ -4,7 +4,7 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from app.models.post_model import Post
-from app.schemas import PostBase, PostPUpdate
+from app.schemas import PostBase, PostPartialUpdate
 
 
 async def get_all(user, db: AsyncSession):
@@ -50,7 +50,7 @@ async def update(id, request: PostBase, db):
     return blog
 
 
-async def partial_update(id, request: PostPUpdate, db):
+async def partial_update(id, request: PostPartialUpdate, db):
     result = await db.execute(select(Post).filter(Post.id == id))
     blog = result.scalar_one_or_none()
     if not blog:

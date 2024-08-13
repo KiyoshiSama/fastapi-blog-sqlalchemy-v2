@@ -8,7 +8,7 @@ class PostBase(BaseModel):
     is_published: bool
 
 
-class PostPUpdate(BaseModel):
+class PostPartialUpdate(BaseModel):
     title: str | None = None
     content: str | None = None
     is_published: bool | None = None

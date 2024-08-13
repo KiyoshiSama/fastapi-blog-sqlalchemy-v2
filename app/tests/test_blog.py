@@ -3,6 +3,7 @@ from faker import Faker
 
 faker = Faker()
 
+
 @pytest.mark.asyncio
 def test_create_post(client, test_user):
     headers = {"Authorization": f"Bearer {test_user['access_token']}"}

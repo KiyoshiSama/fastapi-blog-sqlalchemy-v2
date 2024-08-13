@@ -9,7 +9,7 @@ class UserBase(BaseModel):
     last_name: str
 
 
-class UserPUpdate(BaseModel):
+class UserPartialUpdate(BaseModel):
     email: EmailStr | None = None
     first_name: str | None = None
     last_name: str | None = None

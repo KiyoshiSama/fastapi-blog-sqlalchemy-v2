@@ -14,6 +14,7 @@ from faker import Faker
 
 faker = Faker()
 
+
 @pytest.fixture(autouse=True)
 def app():
     with ExitStack():
@@ -75,11 +76,13 @@ async def session_override(app, connection_test):
 
     app.dependency_overrides[get_db] = get_db_override
 
+
 import faker
 from datetime import datetime
 from app.utils.auth_utils import get_password_hash
 
 fake = faker.Faker()
+
 
 @pytest.fixture
 async def test_user(client):
@@ -122,7 +125,7 @@ async def test_post(client):
             "title": fake.sentence(),
             "content": fake.paragraph(),
             "is_published": True,
-            "user_id": 1,  
+            "user_id": 1,
             "created_at": datetime.now(),
         }
 
@@ -131,4 +134,3 @@ async def test_post(client):
         await session.commit()
 
         yield payload
-
